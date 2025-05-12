@@ -1,6 +1,8 @@
 from pydantic import BaseModel
 from src.utils.schema_to_model import transform
+from src.utils.schema_recursion import break_cycles
 from src.services import langfuse, litellm
+import json
 
 
 class ChatRequest(BaseModel):
@@ -17,12 +19,14 @@ class ChatRequest(BaseModel):
 
 def handle_response_format(json_schema):
     if isinstance(json_schema, dict):
+        json_schema = break_cycles(json_schema, json_schema, max_cycles=3)
         response_format: BaseModel = transform(json_schema)
+        print(json.dumps(response_format.model_json_schema(), indent=2))
         return response_format
 
     elif isinstance(json_schema, str):
         # return {"type", "json_object"}
-        raise Exception("Json mode is not supported! Please use structured responses instead.")
+        raise NotImplementedError("Json mode is not supported! Please use structured responses instead.")
 
 
 def _handle_multimodal_messages(prompt, urls):
@@ -47,6 +51,8 @@ def handle_messages(
 
     if is_new_lf_prompt:
         messages = lf_prompt.compile(**(lf_prompt_config.placeholders or {}))
+        # print("MESSAGES:")
+        # print(json.dumps(messages.model_json_schema(), indent=2))
         params["metadata"]["prompt"] = lf_prompt  # enable prompt management via litellm metadata
 
         if isinstance(messages, str):
@@ -88,8 +94,13 @@ async def call(data: ChatRequest) -> list[dict]:
 
     # get json schema from data or pop from params and turn into pydantic for structured response
     schema = json_schema or params.pop("json_schema", None)
+    # print(json.dumps(schema, indent=2))
+    print(1)
     if schema:
-        params["response_format"] = handle_response_format(schema)
+        schema_data_model = handle_response_format(schema)
+        # print(schema.__dict__)
+        print(2)
+        params["response_format"] = schema_data_model
 
     # ---
 
@@ -108,6 +119,7 @@ async def call(data: ChatRequest) -> list[dict]:
     # ---
 
     response = await litellm.call(**params)
+    print(response)
     message_history.append(dict(role="assistant", content=response))
 
     # must return schema to keep the one from initial lf prompt throughout
