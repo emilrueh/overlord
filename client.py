@@ -171,9 +171,9 @@ class ChatRequest(BaseModel):
     is_new_lf_prompt: bool
     # ---
     text_prompt: str | None = None
-    message_history: list[dict] = []
+    message_history: list[dict] = None
     # ---
-    file_urls: list[str] = []
+    file_urls: list[str] = None
     json_schema: dict | None = None
     metadata: dict
 
