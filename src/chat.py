@@ -19,9 +19,9 @@ class ChatRequest(BaseModel):
 
 def handle_response_format(json_schema):
     if isinstance(json_schema, dict):
+        # break recursion cycles of litellm preventing error
         json_schema = break_cycles(json_schema, json_schema, max_cycles=3)
         response_format: BaseModel = transform(json_schema)
-        print(json.dumps(response_format.model_json_schema(), indent=2))
         return response_format
 
     elif isinstance(json_schema, str):
@@ -51,9 +51,9 @@ def handle_messages(
 
     if is_new_lf_prompt:
         messages = lf_prompt.compile(**(lf_prompt_config.placeholders or {}))
-        # print("MESSAGES:")
-        # print(json.dumps(messages.model_json_schema(), indent=2))
-        params["metadata"]["prompt"] = lf_prompt  # enable prompt management via litellm metadata
+
+        # enable prompt management via litellm metadata
+        params["metadata"]["prompt"] = lf_prompt
 
         if isinstance(messages, str):
             messages = [dict(role="user", content=messages)]
@@ -94,12 +94,9 @@ async def call(data: ChatRequest) -> list[dict]:
 
     # get json schema from data or pop from params and turn into pydantic for structured response
     schema = json_schema or params.pop("json_schema", None)
-    # print(json.dumps(schema, indent=2))
-    print(1)
+
     if schema:
         schema_data_model = handle_response_format(schema)
-        # print(schema.__dict__)
-        print(2)
         params["response_format"] = schema_data_model
 
     # ---
