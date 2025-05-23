@@ -3,7 +3,7 @@ name: PR Check
 on:
   pull_request:
     types: [opened, synchronize, reopened]
-    branches: [main, develop]
+    branches: [main, dev]
 
 jobs:
   hello-world:
